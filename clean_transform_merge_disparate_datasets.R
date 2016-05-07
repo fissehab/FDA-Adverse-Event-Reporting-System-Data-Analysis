@@ -119,7 +119,7 @@ for(i in seq(04,12)){
 
 
 
-indi_new=c()
+indi_new = c()
 for(i in seq(12,15)){
   z=paste0('INDI',i)
   for(j in seq(1,4)){
@@ -297,8 +297,8 @@ demo_old=sqldf("SELECT DISTINCT *
 
 
 
-demo_new=na.omit(demo_new)
-demo_old=na.omit(demo_old)
+#demo_new=na.omit(demo_new)
+#demo_old=na.omit(demo_old)
 
 ###################
 # Merging drug_indi with reac_out
@@ -323,8 +323,7 @@ except_demo_old=sqldf("SELECT di.*, ro.PT AS PT, ro.OUTC_COD AS OUTC_COD
 except_demo_new=sqldf("SELECT di.*, ro.pt AS pt, outc_cod AS outc_cod
                        FROM drug_indi_new di 
                       INNER JOIN reac_outc_new ro
-               
-                             ON di.primaryid=ro.primaryid AND di.caseid=ro.caseid")
+               ON di.primaryid=ro.primaryid AND di.caseid=ro.caseid")
 
 
 all_old=sqldf("SELECT de.*, edo.DRUG_SEQ AS DRUG_SEQ,edo.DRUGNAME as DRUGNAME,
@@ -338,66 +337,44 @@ all_new= sqldf("SELECT de.*, edo.drug_seq AS drug_seq, edo.drugname AS drugname,
                    edo.route AS route, edo.indi_pt AS indi_pt, edo.pt AS pt,edo.outc_cod AS outc_cod
                FROM demo_new de
                INNER JOIN except_demo_new edo
-               ON de.primaryid=edo.primaryid")
+               ON de.primaryid=edo.primaryid AND de.caseid=edo.caseid")
 
 
 
-save.image(file="all_new_old_adverse_events.RData")
+all_new=sqldf("SELECT DISTINCT * 
+               FROM all_new")
+
+all_old=sqldf("SELECT DISTINCT * 
+               FROM all_old")
+
+my_db <- src_sqlite("Merged_adverse_events_FDA", create = TRUE) # create database
 
 
-load("all_new_old_adverse_events.RData")
+adverse_events_FEARS = all_new
+adverse_events_AERS = all_old
+
+copy_to(my_db,adverse_events_FEARS,temporary = FALSE)
+
+copy_to(my_db,adverse_events_AERS,temporary = FALSE)
 
 
-all_old2=distinct(select(all_old,AGE,AGE_COD,GNDR_COD,DRUGNAME,ROUTE,INDI_PT,PT,OUTC_COD))
-all_new2=distinct(select(all_new, age,age_cod,sex,drugname,route,indi_pt,pt, outc_cod))
+rm(list=ls())
 
 
-names(all_old2)=names(all_new2)
+my_db <- src_sqlite("Merged_adverse_events_FDA", create = FALSE)
+# create is false now because I am connecting to an existing database
+
+src_tbls(my_db)
 
 
-all1=rbind(all_old2, all_new2)
+FEARS = tbl(my_db,"adverse_events_FEARS" )
+
+AERS = tbl(my_db,"adverse_events_AERS" )
+
+class(FEARS)
 
 
-
-all2=all1[!duplicated(all1),]
-identical(all1,all2)
+head(FEARS,3)
 
 
-all3a=union(all_old2,all_new2)
-all3b=union(all_new2,all_old2)
-
-
-all4a=anti_join(all_old2,all_new2)
-all4b=anti_join(all_new2,all_old2)
-
-all5a=intersect(all_old2,all_new2)
-all5b=intersect(all_new2,all_old2)
-
-
-
-all6a= setdiff(all_old2,all_new2)
-all6b= setdiff(all_new2,all_old2)
-
-
-all2=sqldf("SELECT *  FROM all_old2 UNION SELECT * FROM all_new2 ")
-names(all2)=stri_trans_totitle(names(all2))
-
-compare(all1,all2, allowAll=TRUE)
-
-
-
-names(all1)=stri_trans_totitle(names(all1))
-
-
-
-
-
-names(all1)=stri_trans_totitle(names(all1))
-
-adverse_events=all1
-
-my_db <- src_sqlite("merged_adverse_events_with_dates", create = TRUE) # create database
-
-
-
-
+head(AERS,3)
